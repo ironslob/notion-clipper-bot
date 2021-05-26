@@ -1,0 +1,6 @@
+Flask==2.0.1
+psycopg2-binary==2.8.6
+python-telegram-bot==13.5
+Flask-Dance==5.0.0
+SQLAlchemy==1.4.15
+alembic==1.6.4
