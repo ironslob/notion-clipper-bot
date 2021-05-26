@@ -31,6 +31,91 @@ def _telegram_user():
     return telegram_user
 
 
+def _reauth_notion(message):
+    # delete notion, trigger send auth
+    user = _telegram_user()
+    g.db.delete(user.notion_auth)
+    g.db.commit()
+
+    _send_auth_message(user, message)
+
+
+def _send_welcome_message(user, message):
+    bot = get_bot()
+    bot.sendMessage(
+        chat_id = user.telegram_chat_id,
+        text = 'Hello! This little bot will create a new page in whatever database you point it at.',
+    )
+
+
+def _send_auth_message(user, message):
+    login_url = full_url_for('notion_auth', telegram_user_id=user.telegram_user_id)
+
+    bot = get_bot()
+    bot.sendMessage(
+        chat_id = user.telegram_chat_id,
+        text = 'Visit the following URL to connect your Notion account - %s - and note for now ONLY CHOOSE ONE database!' % login_url,
+    )
+
+
+def _send_database_message(user, message):
+    login_url = full_url_for('notion_auth', telegram_user_id=user.telegram_user_id)
+
+    bot = get_bot()
+    bot.sendMessage(
+        chat_id = user.telegram_chat_id,
+        text = 'You need to tell me which database you want me to add pages to. Hang on while I show you a list...',
+    )
+
+    request = notion_bp.session.get('/v1/databases')
+
+    if request.ok:
+        data = request.json()
+        results = data['results']
+
+        if not results:
+            bot.sendMessage(
+                chat_id = user.telegram_chat_id,
+                text = 'I don\'t have access to any databases, you may need to disconnect this integration within your Notion settings page to allow access to different databases.',
+            )
+
+        else:
+            def _database_title(database):
+                return database['title'][0]['plain_text']
+
+            if len(results) == 1:
+                bot.sendMessage(
+                    chat_id = user.telegram_chat_id,
+                    text = 'Found 1 database - %s - and setting that as default' % _database_title(results[0]),
+                )
+
+                _choose_database(results[0]['id'])
+
+            else:
+                bot.sendMessage(
+                    chat_id = user.telegram_chat_id,
+                    text = 'I found %d databases, but I can only handle one at the moment. You\'ll have to remove the integration and re-add it in order to choose which databases (pages) you allow me to access.',
+                )
+
+                # TODO multiple databases requires implementing /database command, and taking a parameter
+
+                # databases = "\n".join([
+                #     '[inline /database %s](%s)' % (database['id'], _database_title(database))
+                #     for database in results
+                # ])
+
+                # bot.sendMessage(
+                #     chat_id = user.telegram_chat_id,
+                #     text = databases,
+                # )
+
+    else:
+        bot.sendMessage(
+            chat_id = user.telegram_chat_id,
+            text = 'Something went wrong, try again in a few minutes!',
+        )
+
+
 def _track_user_from_message(db, message):
     created = False
     default_language_code = 'en'
@@ -96,6 +181,48 @@ def _handle_about(message):
     )
 
 
+def _handle_database(message = None):
+    _send_database_message(_telegram_user(), message)
+
+
+class SQLAlchemySessionStorage(SQLAlchemyStorage):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        SQLAlchemySessionStorage.session = property(lambda x: g.db)
+
+notion_bp.storage = SQLAlchemySessionStorage(models.NotionAuth, None, user=_telegram_user)
+
+
+def request_source():
+    (scheme, netloc, path, params, query, fragment) = urlparse(request.url)
+    return urlunparse((scheme, netloc, '', None, None, None))
+
+
+def full_url_for(*args, **kwargs):
+    base_url = kwargs.pop('_base_url', None) or request_source()
+    url = url_for(*args, **kwargs)
+    full_url = base_url + url
+
+    return full_url
+
+
+def _choose_database(database_id):
+    response = notion_bp.session.get('/v1/databases/%s' % database_id)
+
+    assert response.ok, response.text
+
+    data = response.json()
+
+    user = _telegram_user()
+    notion_auth = user.notion_auth
+    notion_auth.database = data
+
+    g.db.add(notion_auth)
+    g.db.commit()
+    g.db.refresh(notion_auth)
+
+
 def build_app():
     app = Flask(__name__)
     app.wsgi_app = ProxyFix(app.wsgi_app)
@@ -126,34 +253,6 @@ def build_app():
             g.db = None
 
         return response
-
-    class SQLAlchemySessionStorage(SQLAlchemyStorage):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
-            SQLAlchemySessionStorage.session = property(lambda x: g.db)
-
-    notion_bp.storage = SQLAlchemySessionStorage(models.NotionAuth, None, user=_telegram_user)
-
-
-    def _handle_database(message = None):
-        _send_database_message(_telegram_user(), message)
-
-
-    def _choose_database(database_id):
-        response = notion_bp.session.get('/v1/databases/%s' % database_id)
-
-        assert response.ok, response.text
-
-        data = response.json()
-
-        user = _telegram_user()
-        notion_auth = user.notion_auth
-        notion_auth.database = data
-
-        g.db.add(notion_auth)
-        g.db.commit()
-        g.db.refresh(notion_auth)
 
 
     @app.route('/all-done')
@@ -323,110 +422,12 @@ def build_app():
         return jsonify({ 'ok': 1 })
 
 
-    def request_source():
-        (scheme, netloc, path, params, query, fragment) = urlparse(request.url)
-        return urlunparse((scheme, netloc, '', None, None, None))
-
-
-    def full_url_for(*args, **kwargs):
-        base_url = kwargs.pop('_base_url', None) or request_source()
-        url = url_for(*args, **kwargs)
-        full_url = base_url + url
-
-        return full_url
-
-
     @app.route('/notion/<telegram_user_id>')
     def notion_auth(telegram_user_id):
         session['telegram_user_id'] = telegram_user_id
         session.modified = True
 
         return redirect(url_for('notion.login'))
-
-
-    def _reauth_notion(message):
-        # delete notion, trigger send auth
-        user = _telegram_user()
-        g.db.delete(user.notion_auth)
-        g.db.commit()
-
-        _send_auth_message(user, message)
-
-
-    def _send_welcome_message(user, message):
-        bot = get_bot()
-        bot.sendMessage(
-            chat_id = user.telegram_chat_id,
-            text = 'Hello! This little bot will create a new page in whatever database you point it at.',
-        )
-
-
-    def _send_auth_message(user, message):
-        login_url = full_url_for('notion_auth', telegram_user_id=user.telegram_user_id)
-
-        bot = get_bot()
-        bot.sendMessage(
-            chat_id = user.telegram_chat_id,
-            text = 'Visit the following URL to connect your Notion account - %s - and note for now ONLY CHOOSE ONE database!' % login_url,
-        )
-
-
-    def _send_database_message(user, message):
-        login_url = full_url_for('notion_auth', telegram_user_id=user.telegram_user_id)
-
-        bot = get_bot()
-        bot.sendMessage(
-            chat_id = user.telegram_chat_id,
-            text = 'You need to tell me which database you want me to add pages to. Hang on while I show you a list...',
-        )
-
-        request = notion_bp.session.get('/v1/databases')
-
-        if request.ok:
-            data = request.json()
-            results = data['results']
-
-            if not results:
-                bot.sendMessage(
-                    chat_id = user.telegram_chat_id,
-                    text = 'I don\'t have access to any databases, you may need to disconnect this integration within your Notion settings page to allow access to different databases.',
-                )
-
-            else:
-                def _database_title(database):
-                    return database['title'][0]['plain_text']
-
-                if len(results) == 1:
-                    bot.sendMessage(
-                        chat_id = user.telegram_chat_id,
-                        text = 'Found 1 database - %s - and setting that as default' % _database_title(results[0]),
-                    )
-
-                    _choose_database(results[0]['id'])
-
-                else:
-                    bot.sendMessage(
-                        chat_id = user.telegram_chat_id,
-                        text = 'I found %d databases, but I can only handle one at the moment. You\'ll have to remove the integration and re-add it in order to choose which databases (pages) you allow me to access.',
-                    )
-
-                    # TODO multiple databases requires implementing /database command, and taking a parameter
-
-                    # databases = "\n".join([
-                    #     '[inline /database %s](%s)' % (database['id'], _database_title(database))
-                    #     for database in results
-                    # ])
-
-                    # bot.sendMessage(
-                    #     chat_id = user.telegram_chat_id,
-                    #     text = databases,
-                    # )
-
-        else:
-            bot.sendMessage(
-                chat_id = user.telegram_chat_id,
-                text = 'Something went wrong, try again in a few minutes!',
-            )
 
     @app.route('/ping')
     def ping():
