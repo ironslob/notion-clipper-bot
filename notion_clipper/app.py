@@ -12,7 +12,7 @@ import telegram
 import logging
 import os
 
-from . import models
+from . import exceptions, models
 from .helpers import get_bot
 from .notion import notion_bp
 from .database import SessionManager, SessionLocal
@@ -97,6 +97,8 @@ def build_app():
 
     app.register_blueprint(notion_bp, url_prefix="/login")
 
+    exceptions.init(app)
+
     @app.before_request
     def pre_request():
         g.db = SessionLocal()
@@ -115,6 +117,7 @@ def build_app():
 
         finally:
             g.db.close()
+            g.db = None
 
         return response
 

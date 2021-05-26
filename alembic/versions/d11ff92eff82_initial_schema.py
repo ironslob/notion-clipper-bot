@@ -1,16 +1,16 @@
 """initial schema
 
-Revision ID: aa351dbad2dd
+Revision ID: d11ff92eff82
 Revises: 
-Create Date: 2021-05-26 15:07:58.689156
+Create Date: 2021-05-26 17:26:38.671023
 
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+
 
 # revision identifiers, used by Alembic.
-revision = 'aa351dbad2dd'
+revision = 'd11ff92eff82'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -33,8 +33,9 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('provider', sa.Text(), nullable=False),
-    sa.Column('token', postgresql.JSONB(), nullable=False),
+    sa.Column('token', sa.JSON(), nullable=False),
     sa.Column('telegram_user_id', sa.BigInteger(), nullable=True),
+    sa.Column('database', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['telegram_user_id'], ['telegram_user.telegram_user_id'], ),
     sa.PrimaryKeyConstraint('id')
     )

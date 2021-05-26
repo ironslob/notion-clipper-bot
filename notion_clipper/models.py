@@ -2,7 +2,6 @@
 
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
 from sqlalchemy import Column, JSON, ForeignKey, Text, DateTime, BigInteger, TIMESTAMP
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -30,6 +29,6 @@ class NotionAuth(Base, OAuthConsumerMixin):
     __tablename__ = 'notion_auth'
 
     provider = Column(Text, nullable=False)
-    token = Column(JSONB, nullable=False)
+    token = Column(JSON, nullable=False)
     telegram_user_id = Column(BigInteger, ForeignKey('telegram_user.telegram_user_id'))
-    database = Column(JSONB, nullable=True)
+    database = Column(JSON, nullable=True)

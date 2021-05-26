@@ -129,6 +129,8 @@ dmypy.json
 .pyre/
 
 # MW stuff
+*.swp
 .envrc
 .direnv
 TODO.md
+zappa_settings.yaml
