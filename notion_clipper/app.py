@@ -59,6 +59,12 @@ def _track_user_from_message(db, message):
     return user, created
 
 
+def _handle_start(message):
+    user = _telegram_user()
+
+    _send_auth_message(user, message)
+
+
 def _handle_help(message):
     help_copy = 'Some helpful message goes here about /help'
 
@@ -245,6 +251,7 @@ def build_app():
                 command_text = message.text[command.offset:command.length]
 
                 command_handlers = {
+                    '/start': _handle_start,
                     '/help': _handle_help,
                     '/stop': _handle_stop,
                     '/about': _handle_about,
@@ -350,7 +357,7 @@ def build_app():
         bot = get_bot()
         bot.sendMessage(
             chat_id = user.telegram_chat_id,
-            text = 'Hi',
+            text = 'Hello! This little bot will create a new page in whatever database you point it at.',
         )
 
 
@@ -360,7 +367,7 @@ def build_app():
         bot = get_bot()
         bot.sendMessage(
             chat_id = user.telegram_chat_id,
-            text = 'Visit the following URL to connect your Notion account - %s' % login_url,
+            text = 'Visit the following URL to connect your Notion account - %s - and note for now ONLY CHOOSE ONE database!' % login_url,
         )
 
 
@@ -396,19 +403,24 @@ def build_app():
                     )
 
                     _choose_database(results[0]['id'])
-                    # [inline /database [{'type': 'text', 'text': {'content': 'GTD', 'link': None}, 'annotations': {'bold': False, 'italic': False, 'strikethrough': False, 'underline': False, 'code': False, 'color': 'default'}, 'plain_text': 'GTD', 'href': None}]](cdd7f5a3-0aac-4297-850b-69bbca61cf35)
-                    pass
 
                 else:
-                    databases = "\n".join([
-                        '[inline /database %s](%s)' % (database['id'], _database_title(database))
-                        for database in results
-                    ])
-
                     bot.sendMessage(
                         chat_id = user.telegram_chat_id,
-                        text = databases,
+                        text = 'I found %d databases, but I can only handle one at the moment. You\'ll have to remove the integration and re-add it in order to choose which databases (pages) you allow me to access.',
                     )
+
+                    # TODO multiple databases requires implementing /database command, and taking a parameter
+
+                    # databases = "\n".join([
+                    #     '[inline /database %s](%s)' % (database['id'], _database_title(database))
+                    #     for database in results
+                    # ])
+
+                    # bot.sendMessage(
+                    #     chat_id = user.telegram_chat_id,
+                    #     text = databases,
+                    # )
 
         else:
             bot.sendMessage(
@@ -435,10 +447,10 @@ def build_app():
 
     return app
 
-app = build_app()
+application = build_app()
 
 if __name__ == '__main__':
-    app.run(
+    application.run(
         debug = True,
         port = 6000,
     )
