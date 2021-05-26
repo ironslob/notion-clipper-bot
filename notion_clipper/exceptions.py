@@ -89,7 +89,7 @@ def warning(exception=None, app=None, extra_data=None, message=None):
     logger.warning(message)
 
 
-def init(app):
+def init(app=None):
     if not rollbar_token:
         logger.debug("not initialising rollbar")
 
@@ -103,7 +103,8 @@ def init(app):
             handler="blocking",  # needed for AWS Lambda
         )
 
-        got_request_exception.connect(flask_report, app)
+        if app:
+            got_request_exception.connect(flask_report, app)
 
 
 def zappa_report(e, event, context):
