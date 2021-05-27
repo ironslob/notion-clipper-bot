@@ -126,9 +126,9 @@ def _track_user_from_message(db, message):
         user = models.TelegramUser(
             telegram_user_id=message.from_user.id,
             telegram_chat_id=message.chat.id,
-            first_name=message.from_user.first_name,
-            last_name=message.from_user.last_name,
-            username=message.from_user.username,
+            first_name=message.from_user.first_name or '',
+            last_name=message.from_user.last_name or '',
+            username=message.from_user.username or '',
             language_code=message.from_user.language_code or default_language_code,
             first_seen=datetime.now(),
             last_seen=datetime.now(),
