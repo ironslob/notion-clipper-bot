@@ -414,7 +414,7 @@ def build_app():
                 response = notion_bp.session.post('/v1/pages', json=payload)
 
                 if not response.ok:
-                    bot.sendmessage(
+                    bot.sendMessage(
                         chat_id = message.chat.id,
                         text = response.text,
                     )
