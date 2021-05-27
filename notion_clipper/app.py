@@ -413,14 +413,14 @@ def build_app():
 
                 response = notion_bp.session.post('/v1/pages', json=payload)
 
-                message = 'Done! ✅'
+                msg = 'Done! ✅'
 
                 if not response.ok:
-                    message = 'Error from Notion 😩'
+                    msg = 'Error from Notion 😩'
 
                 bot.sendMessage(
                     chat_id = message.chat.id,
-                    text = message,
+                    text = msg,
                 )
 
         return jsonify({ 'ok': 1 })
