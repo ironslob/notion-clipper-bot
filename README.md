@@ -9,3 +9,4 @@ A Telegram bot for adding content into Notion
 - possibly include support for transcribing audio notes to text
 - improve basic user flow and copy
 - dockerise/docker compose w/nginx+ssl
+- better language support
