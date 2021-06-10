@@ -20,6 +20,9 @@ from .database import SessionManager, SessionLocal
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+notion_headers = {
+    'Notion-Version': '2021-05-11',
+}
 
 def _telegram_user():
     telegram_user_id = g.get('telegram_user_id', None) or session.get('telegram_user_id', None)
@@ -67,7 +70,7 @@ def _send_database_message(user, message):
         text = 'You need to tell me which database you want me to add pages to. Hang on while I show you a list...',
     )
 
-    request = notion_bp.session.get('/v1/databases')
+    request = notion_bp.session.get('/v1/databases', headers=notion_headers)
 
     if request.ok:
         data = request.json()
@@ -208,7 +211,7 @@ def full_url_for(*args, **kwargs):
 
 
 def _choose_database(database_id):
-    response = notion_bp.session.get('/v1/databases/%s' % database_id)
+    response = notion_bp.session.get('/v1/databases/%s' % database_id, headers=notion_headers)
 
     assert response.ok, response.text
 
@@ -411,7 +414,7 @@ def build_app():
                     }
                 }
 
-                response = notion_bp.session.post('/v1/pages', json=payload)
+                response = notion_bp.session.post('/v1/pages', json=payload, headers=notion_headers)
 
                 msg = 'Done! ✅'
 

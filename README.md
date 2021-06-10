@@ -10,3 +10,4 @@ A Telegram bot for adding content into Notion
 - improve basic user flow and copy
 - dockerise/docker compose w/nginx+ssl
 - better language support
+- track webhooks in the database to avoid duplication
