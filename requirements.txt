@@ -1,4 +1,4 @@
-Flask==2.0.1
+Flask==2.3.2
 psycopg2-binary==2.8.6
 python-telegram-bot==13.5
 Flask-Dance==5.0.0
